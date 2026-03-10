@@ -40,7 +40,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "token error"})
         return
     }
-    c.SetCookie("panel_token", token, 86400, "/", "", true, true)
+    // Use secure flag only when request is over TLS; proxy->backend is http so TLS may be nil.
+    secure := c.Request.TLS != nil
+    c.SetCookie("panel_token", token, 86400, "/", "", secure, true)
     c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
