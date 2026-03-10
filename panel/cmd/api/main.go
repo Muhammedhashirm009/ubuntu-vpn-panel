@@ -54,7 +54,7 @@ func main() {
     protected := r.Group("/api")
     protected.Use(handlers.AuthMiddleware(cfg.JWTSecret))
 
-    usersHandler := &handlers.UsersHandler{Store: store, XWriter: &services.XrayWriter{UserDir: cfg.XrayUserDir}}
+	usersHandler := &handlers.UsersHandler{Store: store, XWriter: &services.XrayWriter{UserDir: cfg.XrayUserDir, ConfigPath: cfg.XrayConfig}}
     statusHandler := &handlers.StatusHandler{Store: store}
 
     protected.GET("/users", usersHandler.List)

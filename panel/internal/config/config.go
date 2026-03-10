@@ -7,13 +7,14 @@ import (
 
 // Config holds runtime settings.
 type Config struct {
-    DBPath       string
-    AdminUser    string
-    AdminPass    string
-    JWTSecret    string
-    PanelPort    string
-    XrayUserDir  string
-    AuditLogPath string
+	DBPath       string
+	AdminUser    string
+	AdminPass    string
+	JWTSecret    string
+	PanelPort    string
+	XrayUserDir  string
+	XrayConfig   string
+	AuditLogPath string
 }
 
 // Load reads environment variables with defaults.
@@ -24,7 +25,8 @@ func Load() Config {
         AdminPass:    getenv("PANEL_ADMIN_PASS", "changeme"),
         JWTSecret:    getenv("PANEL_JWT_SECRET", "dev-secret-change"),
         PanelPort:    getenv("PORT", "9990"),
-        XrayUserDir:  getenv("XRAY_USER_DIR", "/usr/local/etc/xray/users.d"),
+		XrayUserDir:  getenv("XRAY_USER_DIR", "/usr/local/etc/xray/users.d"),
+		XrayConfig:   getenv("XRAY_CONFIG", "/usr/local/etc/xray/config.json"),
         AuditLogPath: getenv("PANEL_AUDIT_LOG", "/var/log/vpn-panel/install.log"),
     }
     if cfg.JWTSecret == "dev-secret-change" {
