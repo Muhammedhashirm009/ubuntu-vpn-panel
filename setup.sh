@@ -119,12 +119,15 @@ build_panel() {
 
 setup_nginx() {
   log "Configuring nginx for panel (443->9990) and Xray WS paths"
+  HOST_VAR='$host'
+  HUP_VAR='$http_upgrade'
+  REQ_VAR='$request_uri'
   cat >/etc/nginx/sites-available/vpn-panel.conf <<EOF
 server {
     listen 80;
     server_name ${DOMAIN};
     location /.well-known/acme-challenge/ { root /var/www/html; }
-    location / { return 301 https://${DOMAIN}\$request_uri; }
+    location / { return 301 https://${DOMAIN}${REQ_VAR}; }
 }
 
 server {
@@ -134,11 +137,11 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
-    location /ws { proxy_pass http://127.0.0.1:10000; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection "upgrade"; proxy_set_header Host \$host; }
-    location /vm { proxy_pass http://127.0.0.1:10001; proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection "upgrade"; proxy_set_header Host \$host; }
-    location /trojan { proxy_pass http://127.0.0.1:10002; proxy_set_header Host \$host; }
+    location /ws { proxy_pass http://127.0.0.1:10000; proxy_http_version 1.1; proxy_set_header Upgrade ${HUP_VAR}; proxy_set_header Connection "upgrade"; proxy_set_header Host ${HOST_VAR}; }
+    location /vm { proxy_pass http://127.0.0.1:10001; proxy_http_version 1.1; proxy_set_header Upgrade ${HUP_VAR}; proxy_set_header Connection "upgrade"; proxy_set_header Host ${HOST_VAR}; }
+    location /trojan { proxy_pass http://127.0.0.1:10002; proxy_set_header Host ${HOST_VAR}; }
 
-    location / { proxy_pass http://127.0.0.1:${PANEL_PORT}; proxy_set_header Host \$host; }
+    location / { proxy_pass http://127.0.0.1:${PANEL_PORT}; proxy_set_header Host ${HOST_VAR}; }
 }
 EOF
   ln -sf /etc/nginx/sites-available/vpn-panel.conf /etc/nginx/sites-enabled/vpn-panel.conf
