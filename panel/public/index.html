@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VPN Panel</title>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --accent:#38bdf8; --muted:#94a3b8; --danger:#ef4444; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:white; font-family: "Inter", system-ui, -apple-system, sans-serif; }
+    header { padding:18px 28px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); }
+    main { padding:22px; display:grid; gap:18px; grid-template-columns: 320px 1fr; }
+    .card { background:var(--card); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,0.25); }
+    h2 { margin:0 0 10px 0; font-size:18px; }
+    label { display:block; color:var(--muted); margin-top:8px; font-size:13px; }
+    input, select { width:100%; padding:10px; margin-top:6px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:#0b1220; color:white; }
+    button { border:none; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; }
+    .btn { background:linear-gradient(120deg,#22d3ee,#3b82f6); color:white; }
+    .btn-danger { background:var(--danger); color:white; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap:12px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.05); }
+    th { text-align:left; color:var(--muted); font-weight:600; }
+    .pill { padding:4px 8px; border-radius:999px; font-size:12px; background:rgba(56,189,248,0.15); color:#67e8f9; }
+    .muted { color:var(--muted); font-size:13px; }
+    #toast { position:fixed; bottom:20px; right:20px; background:#111827; color:white; padding:12px 14px; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.35); display:none; }
+    #login { max-width:360px; margin:80px auto; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } header { flex-wrap:wrap; gap:8px; } }
+  </style>
+</head>
+<body>
+  <div id="app" style="display:none;">
+    <header>
+      <div>
+        <div style="font-weight:800;">VPN Panel</div>
+        <div class="muted">Xray (VLESS/VMess/Trojan) + Dropbear</div>
+      </div>
+      <button class="btn" onclick="logout()">Logout</button>
+    </header>
+    <main>
+      <section class="card">
+        <h2>Create Xray User</h2>
+        <label>Protocol</label>
+        <select id="proto">
+          <option value="vless">VLESS</option>
+          <option value="vmess">VMess</option>
+          <option value="trojan">Trojan</option>
+        </select>
+        <label>Remark</label>
+        <input id="remark" placeholder="user label">
+        <label>Duration (days)</label>
+        <input id="days" type="number" value="30">
+        <button class="btn" style="margin-top:12px;" onclick="createXray()">Create</button>
+        <div id="xray-result" class="muted" style="margin-top:10px;"></div>
+      </section>
+
+      <section class="card">
+        <h2>Create SSH (Dropbear) User</h2>
+        <label>Username</label>
+        <input id="ssh-user" placeholder="username">
+        <label>Password</label>
+        <input id="ssh-pass" type="password" placeholder="password">
+        <label>Duration (days)</label>
+        <input id="ssh-days" type="number" value="30">
+        <button class="btn" style="margin-top:12px;" onclick="createSSH()">Create</button>
+        <div id="ssh-result" class="muted" style="margin-top:10px;"></div>
+      </section>
+
+      <section class="card" style="grid-column: 1 / -1;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2>Users</h2>
+          <button class="btn" onclick="fetchUsers()">Refresh</button>
+        </div>
+        <div class="table-wrap" style="overflow:auto; max-height:320px;">
+          <table id="user-table">
+            <thead><tr><th>ID</th><th>Protocol</th><th>Username</th><th>Expires</th><th>Active</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Port Status</h2>
+        <ul id="port-list" class="muted" style="list-style:none; padding:0; margin:0;"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Audit Trail</h2>
+        <div id="audit-list" class="muted" style="max-height:220px; overflow:auto;"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="login">
+    <div class="card">
+      <h2>Admin Login</h2>
+      <label>Username</label>
+      <input id="login-user" value="admin">
+      <label>Password</label>
+      <input id="login-pass" type="password" placeholder="••••••••">
+      <button class="btn" style="margin-top:12px;" onclick="login()">Login</button>
+      <div id="login-msg" class="muted" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const toast = (msg) => { const el = document.getElementById('toast'); el.innerText = msg; el.style.display='block'; setTimeout(()=> el.style.display='none', 2600); };
+
+    async function login() {
+      const res = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username: document.getElementById('login-user').value, password: document.getElementById('login-pass').value }) });
+      const data = await res.json();
+      if(res.ok){ document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; bootstrap(); }
+      else { document.getElementById('login-msg').innerText = data.error || 'Login failed'; }
+    }
+
+    function logout(){ document.cookie='panel_token=; Max-Age=0;'; location.reload(); }
+
+    async function createXray(){
+      const payload = { protocol: document.getElementById('proto').value, remark: document.getElementById('remark').value, days: parseInt(document.getElementById('days').value||'30') };
+      const res = await fetch('/api/users/xray', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const data = await res.json();
+      document.getElementById('xray-result').innerText = res.ok ? `Created ${data.username} | ${data.link}` : (data.error || 'error');
+      toast(res.ok?'Xray user created':'Error creating Xray user');
+      fetchUsers(); fetchAudits();
+    }
+
+    async function createSSH(){
+      const payload = { username: document.getElementById('ssh-user').value, password: document.getElementById('ssh-pass').value, days: parseInt(document.getElementById('ssh-days').value||'30') };
+      const res = await fetch('/api/users/ssh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const data = await res.json();
+      document.getElementById('ssh-result').innerText = res.ok ? `User ${data.username} created` : (data.error || 'error');
+      toast(res.ok?'SSH user created':'Error creating SSH user');
+      fetchUsers(); fetchAudits();
+    }
+
+    async function fetchUsers(){
+      const res = await fetch('/api/users'); const data = await res.json();
+      const tbody = document.querySelector('#user-table tbody'); tbody.innerHTML='';
+      (data||[]).forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${u.id}</td><td><span class=\"pill\">${u.protocol}</span></td><td>${u.username||''}</td><td>${u.expires_at?.substring(0,10)}</td><td>${u.active?'yes':'no'}</td><td><button class=\"btn-danger\" onclick=\"revoke(${u.id})\">Revoke</button></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function revoke(id){
+      const res = await fetch('/api/users/revoke', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}) });
+      const data = await res.json();
+      toast(res.ok?'User revoked':(data.error||'error'));
+      fetchUsers(); fetchAudits();
+    }
+
+    async function fetchPorts(){
+      const res = await fetch('/api/ports'); const data = await res.json();
+      const list = document.getElementById('port-list'); list.innerHTML='';
+      (data||[]).forEach(p => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${p.port}</strong> — ${p.listeners.length ? 'in use by '+p.listeners.map(l=>`${l.cmd}(pid ${l.pid})`).join(', ') : 'free'}`;
+        list.appendChild(li);
+      });
+    }
+
+    async function fetchAudits(){
+      const res = await fetch('/api/audits'); const data = await res.json();
+      const list = document.getElementById('audit-list'); list.innerHTML='';
+      (data||[]).forEach(a => { const div=document.createElement('div'); div.textContent = `${a.created_at}: ${a.action} ${a.detail}`; list.appendChild(div); });
+    }
+
+    async function bootstrap(){ await Promise.all([fetchUsers(), fetchPorts(), fetchAudits()]); }
+  </script>
+</body>
+</html>
