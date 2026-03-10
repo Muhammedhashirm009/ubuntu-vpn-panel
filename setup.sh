@@ -61,7 +61,7 @@ install_packages() {
 install_go() {
   if ! command -v go >/dev/null 2>&1; then
     log "Installing Go"
-    VERSION="1.23.1"
+    VERSION="1.22.2"
     wget -q https://go.dev/dl/go${VERSION}.linux-amd64.tar.gz -O /tmp/go.tar.gz
     rm -rf /usr/local/go
     tar -C /usr/local -xzf /tmp/go.tar.gz
