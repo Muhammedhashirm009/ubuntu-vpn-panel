@@ -55,7 +55,7 @@ ensure_ports_free() {
 install_packages() {
   log "Updating apt and installing deps"
   apt-get update
-  apt-get install -y curl wget unzip tar ufw nginx certbot python3-certbot-nginx sqlite3 lsof dropbear
+  apt-get install -y curl wget unzip tar ufw nginx certbot python3-certbot-nginx sqlite3 lsof dropbear openssh-server
 }
 
 install_go() {
@@ -103,7 +103,8 @@ ensure_sshd_password_auth() {
   grep -q '^PasswordAuthentication' "$cfg" && sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' "$cfg" || echo "PasswordAuthentication yes" >> "$cfg"
   grep -q '^PermitRootLogin' "$cfg" && sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' "$cfg" || echo "PermitRootLogin yes" >> "$cfg"
   grep -q '^ChallengeResponseAuthentication' "$cfg" && sed -i 's/^ChallengeResponseAuthentication.*/ChallengeResponseAuthentication yes/' "$cfg" || echo "ChallengeResponseAuthentication yes" >> "$cfg"
-  systemctl restart sshd || systemctl restart ssh
+  # Restart whichever service name exists (Debian/Ubuntu usually 'ssh')
+  systemctl restart ssh || systemctl restart sshd || service ssh restart || true
 }
 
 build_panel() {
