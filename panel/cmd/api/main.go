@@ -19,28 +19,26 @@ import (
 )
 
 func main() {
-    cfg := config.Load()
+	cfg := config.Load()
 
-    // ensure data dir exists
-    _ = os.MkdirAll(filepath.Dir(cfg.DBPath), 0o755)
+	_ = os.MkdirAll(filepath.Dir(cfg.DBPath), 0o755)
 
-    store, err := db.New(cfg.DBPath)
-    if err != nil {
-        log.Fatalf("db init: %v", err)
-    }
+	store, err := db.New(cfg.DBPath)
+	if err != nil {
+		log.Fatalf("db init: %v", err)
+	}
 
-    if _, err := logging.Setup(cfg.AuditLogPath); err != nil {
-        log.Printf("log setup: %v", err)
-    }
+	if _, err := logging.Setup(cfg.AuditLogPath); err != nil {
+		log.Printf("log setup: %v", err)
+	}
 
-    // seed admin
-    hash, err := authHash(cfg.AdminPass)
-    if err != nil {
-        log.Fatalf("hash admin: %v", err)
-    }
-    if err := store.UpsertAdmin(cfg.AdminUser, hash); err != nil {
-        log.Fatalf("seed admin: %v", err)
-    }
+	hash, err := authHash(cfg.AdminPass)
+	if err != nil {
+		log.Fatalf("hash admin: %v", err)
+	}
+	if err := store.UpsertAdmin(cfg.AdminUser, hash); err != nil {
+		log.Fatalf("seed admin: %v", err)
+	}
 
 	r := gin.Default()
 	r.Use(cors.Default())
@@ -54,7 +52,6 @@ func main() {
 		c.File("./public/index.html")
 	})
 
-	// Public routes
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
 
 	authHandler := &handlers.AuthHandler{Store: store, Cfg: cfg}
@@ -80,7 +77,6 @@ func main() {
 	}
 }
 
-// small helper to avoid import cycle
 func authHash(pw string) (string, error) {
 	return auth.HashPassword(pw)
 }
