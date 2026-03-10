@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -41,34 +42,42 @@ func main() {
         log.Fatalf("seed admin: %v", err)
     }
 
-    r := gin.Default()
-    r.Use(cors.Default())
-    r.Static("/public", "./public")
+	r := gin.Default()
+	r.Use(cors.Default())
+	r.Static("/public", "./public")
+	r.GET("/", func(c *gin.Context) { c.File("./public/index.html") })
+	r.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		c.File("./public/index.html")
+	})
 
-    // Public routes
-    r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
+	// Public routes
+	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
 
-    authHandler := &handlers.AuthHandler{Store: store, Cfg: cfg}
-    r.POST("/api/auth/login", authHandler.Login)
+	authHandler := &handlers.AuthHandler{Store: store, Cfg: cfg}
+	r.POST("/api/auth/login", authHandler.Login)
 
-    protected := r.Group("/api")
-    protected.Use(handlers.AuthMiddleware(cfg.JWTSecret))
+	protected := r.Group("/api")
+	protected.Use(handlers.AuthMiddleware(cfg.JWTSecret))
 
 	usersHandler := &handlers.UsersHandler{Store: store, XWriter: &services.XrayWriter{UserDir: cfg.XrayUserDir, ConfigPath: cfg.XrayConfig}}
-    statusHandler := &handlers.StatusHandler{Store: store}
+	statusHandler := &handlers.StatusHandler{Store: store}
 
-    protected.GET("/users", usersHandler.List)
-    protected.POST("/users/xray", usersHandler.CreateXray)
-    protected.POST("/users/ssh", usersHandler.CreateSSH)
-    protected.POST("/users/revoke", usersHandler.Delete)
+	protected.GET("/users", usersHandler.List)
+	protected.POST("/users/xray", usersHandler.CreateXray)
+	protected.POST("/users/ssh", usersHandler.CreateSSH)
+	protected.POST("/users/revoke", usersHandler.Delete)
 
-    protected.GET("/ports", statusHandler.Ports)
-    protected.GET("/audits", statusHandler.Audits)
+	protected.GET("/ports", statusHandler.Ports)
+	protected.GET("/audits", statusHandler.Audits)
 
-    log.Printf("server on :%s", cfg.PanelPort)
-    if err := r.Run(":" + cfg.PanelPort); err != nil {
-        log.Fatal(err)
-    }
+	log.Printf("server on :%s", cfg.PanelPort)
+	if err := r.Run(":" + cfg.PanelPort); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // small helper to avoid import cycle
