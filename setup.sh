@@ -170,7 +170,7 @@ server {
 }
 EOF
   ln -sf /etc/nginx/sites-available/vpn-panel.conf /etc/nginx/sites-enabled/vpn-panel.conf
-  nginx -t && systemctl reload nginx
+  nginx -t && systemctl enable nginx && systemctl restart nginx
 }
 
 issue_cert() {
