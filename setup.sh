@@ -5,6 +5,9 @@ set -euo pipefail
 DOMAIN_PANEL=""
 EMAIL=""
 OPEN_9990="n"
+APP_DIR="/opt/vpn-panel"
+PANEL_PORT="9990"
+REQUIRED_PORTS=(80 443 "$PANEL_PORT" 2022)
 
 usage() {
   echo "Usage: sudo ./setup.sh --panel-domain panel.domain.com --email admin@example.com [--open-9990]"
@@ -52,7 +55,7 @@ ensure_ports_free() {
 install_packages() {
   log "Updating apt and installing deps"
   apt-get update
-  apt-get install -y curl wget unzip tar ufw nginx certbot python3-certbot-nginx sqlite3 lsof dropbear openssh-server unbound dnsdist libnginx-mod-stream
+  apt-get install -y curl wget unzip tar ufw nginx certbot python3-certbot-nginx sqlite3 lsof dropbear openssh-server unbound dnsdist libnginx-mod-stream build-essential
 }
 
 install_go() {
@@ -102,8 +105,8 @@ configure_dropbear() {
 <font color="green"><b>======================================</b></font><br>
 EOF
   sed -i 's/NO_START=1/NO_START=0/g' /etc/default/dropbear
-  sed -i 's/^DROPBEAR_PORT=.*/DROPBEAR_PORT=2022/' /etc/default/dropbear
-  sed -i 's|^DROPBEAR_EXTRA_ARGS=.*|DROPBEAR_EXTRA_ARGS="-b /etc/issue.net"|' /etc/default/dropbear
+  sed -i 's/^#*DROPBEAR_PORT=.*/DROPBEAR_PORT=2022/' /etc/default/dropbear
+  sed -i 's|^#*DROPBEAR_EXTRA_ARGS=.*|DROPBEAR_EXTRA_ARGS="-b /etc/issue.net"|' /etc/default/dropbear
   grep -q "/usr/sbin/nologin" /etc/shells || echo "/usr/sbin/nologin" >> /etc/shells
   grep -q "/bin/false" /etc/shells || echo "/bin/false" >> /etc/shells
   systemctl enable dropbear
@@ -140,7 +143,7 @@ build_panel() {
   cp -r ./panel/* "$APP_DIR"/
   pushd "$APP_DIR" >/dev/null
   /usr/local/go/bin/go mod tidy
-  /usr/local/go/bin/go build -o bin/vpn-panel ./cmd/api
+  CGO_ENABLED=1 /usr/local/go/bin/go build -o bin/vpn-panel ./cmd/api
   popd >/dev/null
 }
 
@@ -172,10 +175,9 @@ EOF
 
 issue_cert() {
   log "Requesting Let's Encrypt certificate"
-  # use standalone so nginx config absence is fine; ensure port 80 free
+  # use standalone so nginx config absence is fine; ensure port 80/443 free
   systemctl stop nginx || true
   certbot certonly --standalone -d "$DOMAIN_PANEL" --non-interactive --agree-tos -m "$EMAIL" --preferred-challenges http
-  systemctl start nginx
 }
 
 setup_systemd() {
