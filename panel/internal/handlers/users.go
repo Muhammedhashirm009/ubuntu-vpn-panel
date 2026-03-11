@@ -1,8 +1,11 @@
 package handlers
 
 import (
+    "encoding/base64"
+    "encoding/json"
     "fmt"
     "net/http"
+    "net/url"
     "time"
 
     "github.com/gin-gonic/gin"
@@ -51,7 +54,8 @@ func (h *UsersHandler) CreateXray(c *gin.Context) {
         _, _ = h.XWriter.WriteUser(services.XrayUser{ID: id, Protocol: req.Protocol, Username: u.Username, UUID: uid, Remark: req.Remark})
         _ = services.ReloadXray()
     }
-    link := buildLink(req.Protocol, uid)
+    vpnDomain := h.Store.GetSetting("vpn_domain")
+    link := buildLink(req.Protocol, uid, req.Remark, vpnDomain)
     _ = h.Store.AddAudit("xray_user_created", fmt.Sprintf("protocol=%s user_id=%d", req.Protocol, id))
     c.JSON(http.StatusOK, gin.H{"id": id, "username": u.Username, "uuid": uid, "expires_at": expiry, "link": link})
 }
@@ -80,6 +84,12 @@ func (h *UsersHandler) List(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         return
     }
+    vpnDomain := h.Store.GetSetting("vpn_domain")
+    for i := range users {
+        if users[i].Protocol == "vless" || users[i].Protocol == "vmess" || users[i].Protocol == "trojan" {
+            users[i].Link = buildLink(users[i].Protocol, users[i].UUID, users[i].Remark, vpnDomain)
+        }
+    }
     c.JSON(http.StatusOK, users)
 }
 
@@ -89,22 +99,60 @@ func (h *UsersHandler) Delete(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
-    if err := h.Store.DeactivateUser(req.ID); err != nil {
+
+    // Retrieve user first to know what physical files/users to delete
+    var protocol, username string
+    _ = h.Store.DB.QueryRow(`SELECT protocol, username FROM users WHERE id=?`, req.ID).Scan(&protocol, &username)
+
+    if err := h.Store.HardDeleteUser(req.ID); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
         return
     }
-    _ = h.Store.AddAudit("user_revoked", fmt.Sprintf("id=%d", req.ID))
-    c.JSON(http.StatusOK, gin.H{"status": "revoked"})
+
+    // Physical Deletion
+    if protocol == "ssh" {
+        _ = services.DeleteDropbearUser(username)
+    } else if protocol == "vless" || protocol == "vmess" || protocol == "trojan" {
+        _ = h.XWriter.DeleteUser(req.ID)
+        _ = services.ReloadXray()
+    }
+
+    _ = h.Store.AddAudit("user_deleted", fmt.Sprintf("id=%d", req.ID))
+    c.JSON(http.StatusOK, gin.H{"status": "deleted"})
 }
 
-func buildLink(proto, id string) string {
+func buildLink(proto, id, remark, domain string) string {
+    if domain == "" {
+        domain = "your.domain"
+    }
+    safeRemark := url.QueryEscape(remark)
+    if safeRemark == "" {
+        safeRemark = "VPN"
+    }
+
     switch proto {
     case "vless":
-        return fmt.Sprintf("vless://%s@your.domain:443?security=tls&type=ws#%s", id, id[:6])
+        return fmt.Sprintf("vless://%s@%s:443?encryption=none&security=tls&sni=%s&type=ws&host=%s&path=%%2Fws#%s", id, domain, domain, domain, safeRemark)
     case "vmess":
-        return fmt.Sprintf("vmess://%s", id)
+        vobj := map[string]string{
+            "v":    "2",
+            "ps":   remark,
+            "add":  domain,
+            "port": "443",
+            "id":   id,
+            "aid":  "0",
+            "scy":  "auto",
+            "net":  "ws",
+            "type": "none",
+            "host": domain,
+            "path": "/vm",
+            "tls":  "tls",
+            "sni":  domain,
+        }
+        b, _ := json.Marshal(vobj)
+        return fmt.Sprintf("vmess://%s", base64.StdEncoding.EncodeToString(b))
     case "trojan":
-        return fmt.Sprintf("trojan://%s@your.domain:443?security=tls&type=grpc", id)
+        return fmt.Sprintf("trojan://%s@%s:443?security=tls&sni=%s&type=grpc&serviceName=trojan#%s", id, domain, domain, safeRemark)
     default:
         return ""
     }

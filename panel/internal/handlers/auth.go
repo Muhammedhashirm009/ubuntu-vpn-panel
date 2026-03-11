@@ -26,12 +26,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
-    user, hash, err := h.Store.GetAdmin()
+    user, hash, err := h.Store.GetAdmin(req.Username)
     if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "admin not initialized"})
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
         return
     }
-    if req.Username != user || auth.CheckPassword(hash, req.Password) != nil {
+    if auth.CheckPassword(hash, req.Password) != nil {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
         return
     }

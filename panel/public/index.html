@@ -3,172 +3,751 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VPN Panel</title>
+  <title>Premium VPN Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg:#0f172a; --card:#111827; --accent:#38bdf8; --muted:#94a3b8; --danger:#ef4444; }
-    * { box-sizing:border-box; }
-    body { margin:0; background:var(--bg); color:white; font-family: "Inter", system-ui, -apple-system, sans-serif; }
-    header { padding:18px 28px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); }
-    main { padding:22px; display:grid; gap:18px; grid-template-columns: 320px 1fr; }
-    .card { background:var(--card); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,0.25); }
-    h2 { margin:0 0 10px 0; font-size:18px; }
-    label { display:block; color:var(--muted); margin-top:8px; font-size:13px; }
-    input, select { width:100%; padding:10px; margin-top:6px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:#0b1220; color:white; }
-    button { border:none; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; }
-    .btn { background:linear-gradient(120deg,#22d3ee,#3b82f6); color:white; }
-    .btn-danger { background:var(--danger); color:white; }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap:12px; }
-    table { width:100%; border-collapse:collapse; font-size:13px; }
-    th, td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.05); }
-    th { text-align:left; color:var(--muted); font-weight:600; }
-    .pill { padding:4px 8px; border-radius:999px; font-size:12px; background:rgba(56,189,248,0.15); color:#67e8f9; }
-    .muted { color:var(--muted); font-size:13px; }
-    #toast { position:fixed; bottom:20px; right:20px; background:#111827; color:white; padding:12px 14px; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.35); display:none; }
-    #login { max-width:360px; margin:80px auto; }
-    @media (max-width: 900px) { main { grid-template-columns: 1fr; } header { flex-wrap:wrap; gap:8px; } }
+    :root { 
+      --bg: #09090b; 
+      --card-bg: rgba(24, 24, 27, 0.65); 
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent-primary: #3b82f6;
+      --accent-secondary: #8b5cf6;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --danger: #ef4444; 
+      --sidebar-width: 260px;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+    
+    body { 
+      background: var(--bg); 
+      color: var(--text-main); 
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%);
+      background-attachment: fixed;
+      display: flex;
+    }
+
+    /* Sidebar Layout */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: rgba(9, 9, 11, 0.8);
+      backdrop-filter: blur(12px);
+      border-right: 1px solid var(--card-border);
+      height: 100vh;
+      position: fixed;
+      left: 0;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 30px 20px;
+      z-index: 10;
+    }
+
+    .logo-area { display: flex; flex-direction: column; margin-bottom: 40px; padding: 0 10px; }
+    .logo-title { font-size: 26px; font-weight: 700; background: linear-gradient(135deg, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .logo-subtitle { font-size: 13px; color: var(--text-muted); font-weight: 300; margin-top: 4px; }
+
+    .nav-links { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .nav-item {
+      padding: 12px 16px;
+      border-radius: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
+    .nav-item.active { 
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .logout-btn { margin-top: auto; color: var(--danger); }
+    .logout-btn:hover { background: rgba(239, 68, 68, 0.1); }
+
+    /* Main Content Area */
+    .main-wrapper {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      min-height: 100vh;
+      padding: 40px;
+    }
+    
+    .tab-content { display: none; animation: fadeIn 0.3s ease forwards; }
+    .tab-content.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .header-title { font-size: 28px; font-weight: 600; margin-bottom: 30px; letter-spacing: -0.5px; }
+
+    /* Components */
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+    .split-layout { display: grid; grid-template-columns: 350px 1fr; gap: 24px; }
+    
+    .card { 
+      background: var(--card-bg); 
+      border: 1px solid var(--card-border); 
+      border-radius: 20px; 
+      padding: 24px; 
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
+    }
+    
+    h2 { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #e2e8f0; }
+    
+    .form-group { margin-bottom: 18px; }
+    label { display: block; color: var(--text-muted); margin-bottom: 8px; font-size: 14px; font-weight: 500;}
+    
+    input, select { 
+      width: 100%; 
+      padding: 12px 16px; 
+      border-radius: 12px; 
+      border: 1px solid rgba(255,255,255,0.1); 
+      background: rgba(0,0,0,0.3); 
+      color: white; 
+      font-size: 15px;
+      transition: all 0.2s;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+    
+    button { 
+      border: none; 
+      border-radius: 12px; 
+      padding: 12px 20px; 
+      cursor: pointer; 
+      font-weight: 600; 
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-primary { 
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); 
+      color: white; 
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+      width: 100%;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4); }
+    .btn-primary:active { transform: translateY(0); }
+    
+    .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: white; }
+    .btn-outline:hover { background: rgba(255,255,255,0.05); }
+    
+    .btn-danger { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); padding: 8px 12px; border-radius: 10px; }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.8); color: white; }
+    
+    .pill { 
+      padding: 6px 12px; 
+      border-radius: 999px; 
+      font-size: 12px; 
+      font-weight: 600;
+      background: rgba(59, 130, 246, 0.15); 
+      color: #93c5fd; 
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      backdrop-filter: blur(4px);
+    }
+
+    table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+    th, td { padding: 14px 16px; border-bottom: 1px solid var(--card-border); text-align: left; }
+    th { color: var(--text-muted); font-weight: 500; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+    .muted { color: var(--text-muted); font-size: 13px; }
+
+    /* Circular Progress Rings */
+    .stat-ring-container { display: flex; align-items: center; gap: 24px; padding: 12px; }
+    .stat-ring { position: relative; width: 80px; height: 80px; }
+    .stat-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .stat-ring circle {
+      fill: none; stroke-width: 6; stroke-linecap: round;
+    }
+    .stat-ring .bg { stroke: rgba(255,255,255,0.05); }
+    .stat-ring .progress { 
+      stroke: var(--accent-primary); 
+      stroke-dasharray: 220; 
+      stroke-dashoffset: 220; 
+      transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1); 
+    }
+    .stat-ring .progress.purple { stroke: var(--accent-secondary); }
+    .stat-ring .value {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums;
+    }
+    .stat-details { display: flex; flex-direction: column; gap: 4px; }
+    .stat-label { color: var(--text-muted); font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-sub { font-size: 20px; font-weight: 600; color: white; display:flex; align-items: baseline; gap: 4px; }
+    .stat-sub span { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+
+    /* Modals & Fullscreens */
+    .overlay { 
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); 
+      display: flex; justify-content: center; align-items: center; 
+      z-index: 100;
+    }
+    
+    .modal-card { width: 100%; max-width: 440px; padding: 36px; }
+    .modal-card h2 { font-size: 28px; margin-bottom: 8px; justify-content: center; text-align: center; background: linear-gradient(135deg, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .modal-card p.subtitle { text-align: center; color: var(--text-muted); margin-bottom: 24px; font-size: 15px; }
+
+    #toast { 
+      position: fixed; bottom: 24px; right: 24px; 
+      background: rgba(255,255,255,0.1); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1);
+      color: white; padding: 14px 24px; border-radius: 16px; 
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4); 
+      display: none; font-weight: 500; z-index: 999;
+      transform: translateY(100%); animation: slideUp 0.3s forwards;
+    }
+
+    @keyframes slideUp { to { transform: translateY(0); } }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+    @media (max-width: 1024px) { 
+      .split-layout { grid-template-columns: 1fr; } 
+    }
   </style>
 </head>
 <body>
-  <div id="app" style="display:none;">
-    <header>
-      <div>
-        <div style="font-weight:800;">VPN Panel</div>
-        <div class="muted">Xray (VLESS/VMess/Trojan) + Dropbear</div>
+
+  <!-- App View -->
+  <div id="app" style="display:none; width: 100%;">
+    
+    <div class="sidebar">
+      <div class="logo-area">
+        <div class="logo-title">VPN Panel</div>
+        <div class="logo-subtitle">Access Management</div>
       </div>
-      <button class="btn" onclick="logout()">Logout</button>
-    </header>
-    <main>
-      <section class="card">
-        <h2>Create Xray User</h2>
-        <label>Protocol</label>
-        <select id="proto">
-          <option value="vless">VLESS</option>
-          <option value="vmess">VMess</option>
-          <option value="trojan">Trojan</option>
-        </select>
-        <label>Remark</label>
-        <input id="remark" placeholder="user label">
-        <label>Duration (days)</label>
-        <input id="days" type="number" value="30">
-        <button class="btn" style="margin-top:12px;" onclick="createXray()">Create</button>
-        <div id="xray-result" class="muted" style="margin-top:10px;"></div>
-      </section>
+      
+      <div class="nav-links">
+        <div class="nav-item active" onclick="switchTab('home', this)">Dashboard</div>
+        <div class="nav-item" onclick="switchTab('xray', this)">Xray VPN (VLESS)</div>
+        <div class="nav-item" onclick="switchTab('ssh', this)">SSH Tunnels</div>
+        <div class="nav-item" onclick="switchTab('dns', this)">Private DNS (DoH)</div>
+        <div class="nav-item" onclick="switchTab('admin', this)">Admin Settings</div>
+        
+        <div class="nav-item logout-btn" onclick="logout()" style="margin-top: auto;">Lock / Logout</div>
+      </div>
+    </div>
 
-      <section class="card">
-        <h2>Create SSH (Dropbear) User</h2>
-        <label>Username</label>
-        <input id="ssh-user" placeholder="username">
-        <label>Password</label>
-        <input id="ssh-pass" type="password" placeholder="password">
-        <label>Duration (days)</label>
-        <input id="ssh-days" type="number" value="30">
-        <button class="btn" style="margin-top:12px;" onclick="createSSH()">Create</button>
-        <div id="ssh-result" class="muted" style="margin-top:10px;"></div>
-      </section>
-
-      <section class="card" style="grid-column: 1 / -1;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h2>Users</h2>
-          <button class="btn" onclick="fetchUsers()">Refresh</button>
+    <div class="main-wrapper">
+      
+      <!-- TAB: Home -->
+      <div id="tab-home" class="tab-content active">
+        <div class="header-title">System Overview</div>
+        
+        <!-- Hardware Metrics -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 24px;">
+          <!-- CPU -->
+          <div class="card stat-ring-container">
+            <div class="stat-ring">
+              <svg><circle class="bg" cx="40" cy="40" r="35"></circle><circle class="progress" cx="40" cy="40" r="35" id="cpu-ring"></circle></svg>
+              <div class="value" id="cpu-val">--%</div>
+            </div>
+            <div class="stat-details">
+              <div class="stat-label">CPU Usage</div>
+              <div class="stat-sub">Live <span style="color:#4ade80">●</span></div>
+            </div>
+          </div>
+          
+          <!-- Memory -->
+          <div class="card stat-ring-container">
+            <div class="stat-ring">
+              <svg><circle class="bg" cx="40" cy="40" r="35"></circle><circle class="progress purple" cx="40" cy="40" r="35" id="mem-ring"></circle></svg>
+              <div class="value" id="mem-val">--%</div>
+            </div>
+            <div class="stat-details">
+              <div class="stat-label">Memory Utilization</div>
+              <div class="stat-sub" id="mem-abs">-- / -- <span>GB</span></div>
+            </div>
+          </div>
+          
+          <!-- Network -->
+          <div class="card stat-ring-container">
+            <div style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
+              <div class="stat-label">Total Network Traffic</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                  <div style="font-size: 12px; color: #a78bfa; margin-bottom: 4px;">▼ Download (RX)</div>
+                  <div class="stat-sub" id="net-rx" style="font-size: 16px;">-- <span>MB</span></div>
+                </div>
+                <div>
+                  <div style="font-size: 12px; color: #60a5fa; margin-bottom: 4px;">▲ Upload (TX)</div>
+                  <div class="stat-sub" id="net-tx" style="font-size: 16px;">-- <span>MB</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="table-wrap" style="overflow:auto; max-height:320px;">
-          <table id="user-table">
-            <thead><tr><th>ID</th><th>Protocol</th><th>Username</th><th>Expires</th><th>Active</th><th>Actions</th></tr></thead>
-            <tbody></tbody>
-          </table>
+
+        <div class="dashboard-grid">
+          <section class="card">
+            <h2>Port Listeners</h2>
+            <ul id="port-list" class="muted" style="list-style:none;"></ul>
+            <button class="btn-outline" style="margin-top: 20px; width:100%;" onclick="fetchPorts()">Refresh Ports</button>
+          </section>
+          
+          <section class="card">
+            <h2>Recent Security Audits</h2>
+            <div id="audit-list" class="muted" style="max-height:250px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;"></div>
+            <button class="btn-outline" style="margin-top: 20px; width:100%;" onclick="fetchAudits()">Refresh Logs</button>
+          </section>
         </div>
-      </section>
+      </div>
 
-      <section class="card">
-        <h2>Port Status</h2>
-        <ul id="port-list" class="muted" style="list-style:none; padding:0; margin:0;"></ul>
-      </section>
+      <!-- TAB: Xray -->
+      <div id="tab-xray" class="tab-content">
+        <div class="header-title">Xray Management</div>
+        <div class="split-layout">
+          <section class="card">
+            <h2>Create Connection</h2>
+            <div class="form-group">
+              <label>Protocol</label>
+              <select id="proto">
+                <option value="vless">VLESS (TCP/WS)</option>
+                <option value="vmess">VMess (TCP/WS)</option>
+                <option value="trojan">Trojan (gRPC)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Client Remark</label>
+              <input id="remark" placeholder="e.g. John's Windows">
+            </div>
+            <div class="form-group">
+              <label>Expiry (Days)</label>
+              <input id="days" type="number" value="30">
+            </div>
+            <button class="btn-primary" onclick="createXray()">Generate Client</button>
+          </section>
 
-      <section class="card">
-        <h2>Audit Trail</h2>
-        <div id="audit-list" class="muted" style="max-height:220px; overflow:auto;"></div>
-      </section>
-    </main>
+          <section class="card" style="overflow-x:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+              <h2 style="margin:0;">Active Users</h2>
+              <button class="btn-outline" style="padding: 8px 16px;" onclick="fetchUsers()">Refresh</button>
+            </div>
+            <table id="xray-table">
+              <thead><tr><th>Protocol</th><th>Identifier</th><th>Expires</th><th>Link</th><th>Controls</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </section>
+        </div>
+      </div>
+
+      <!-- TAB: SSH -->
+      <div id="tab-ssh" class="tab-content">
+        <div class="header-title">SSH Tunnel Management (Port 2022)</div>
+        <div class="split-layout">
+          <section class="card">
+            <h2>Dropbear Account</h2>
+            <div class="form-group">
+              <label>Username</label>
+              <input id="ssh-user" placeholder="Create username">
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input id="ssh-pass" type="password" placeholder="Create password">
+            </div>
+            <div class="form-group">
+              <label>Expiry (Days)</label>
+              <input id="ssh-days" type="number" value="30">
+            </div>
+            <button class="btn-primary" onclick="createSSH()">Create Tunnel User</button>
+          </section>
+
+          <section class="card" style="overflow-x:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+              <h2 style="margin:0;">Active SSH Users</h2>
+              <button class="btn-outline" style="padding: 8px 16px;" onclick="fetchUsers()">Refresh</button>
+            </div>
+            <table id="ssh-table">
+              <thead><tr><th>Username</th><th>Expires</th><th>Status</th><th>Controls</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </section>
+        </div>
+      </div>
+
+      <!-- TAB: Private DNS -->
+      <div id="tab-dns" class="tab-content">
+        <div class="header-title">Private DNS (Unbound DoH/DoT)</div>
+        <div class="split-layout">
+          <section class="card">
+            <h2>Add DNS Domain</h2>
+            <p class="muted" style="margin-bottom:16px;">This will provision Let's Encrypt SSL and proxy it to Unbound resolver for Android.</p>
+            <div class="form-group">
+              <label>Domain Name</label>
+              <input id="dns-domain" placeholder="e.g. dns.example.com">
+            </div>
+            <button id="dns-btn" class="btn-primary" onclick="addDNS()">Install Certificate & Proxy</button>
+            <div id="dns-msg" style="margin-top:12px; font-size:13px; text-align:center;"></div>
+          </section>
+
+          <section class="card" style="overflow-x:auto;">
+            <h2 style="margin-bottom: 20px;">Configured DNS Endpoints</h2>
+            <table id="dns-table">
+              <thead><tr><th>DNS Domain</th><th>Android String</th><th>Controls</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </section>
+        </div>
+      </div>
+
+      <!-- TAB: Admin -->
+      <div id="tab-admin" class="tab-content">
+        <div class="header-title">Admin Management</div>
+        <div class="split-layout">
+          <section class="card">
+            <h2>Add / Update Administrator</h2>
+            <div class="form-group">
+              <label>Username</label>
+              <input id="admin-user" placeholder="Username">
+            </div>
+            <div class="form-group">
+              <label>New Password</label>
+              <input id="admin-pass" type="password" placeholder="Secure Password">
+            </div>
+            <div style="display:flex; gap:12px; margin-top:20px;">
+              <button class="btn-primary" onclick="addAdmin()">Add User</button>
+              <button class="btn-outline" style="width:100%" onclick="updateAdmin()">Update Password</button>
+            </div>
+          </section>
+
+          <section class="card" style="overflow-x:auto;">
+            <h2 style="margin-bottom: 20px;">Registered Admins</h2>
+            <table id="admin-table">
+              <thead><tr><th>ID</th><th>Username</th><th>Controls</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </section>
+        </div>
+      </div>
+
+    </div>
   </div>
 
-  <div id="login">
-    <div class="card">
-      <h2>Admin Login</h2>
-      <label>Username</label>
-      <input id="login-user" value="admin">
-      <label>Password</label>
-      <input id="login-pass" type="password" placeholder="••••••••">
-      <button class="btn" style="margin-top:12px;" onclick="login()">Login</button>
-      <div id="login-msg" class="muted" style="margin-top:10px;"></div>
+  <!-- Login Modal -->
+  <div id="login" class="overlay">
+    <div class="card modal-card">
+      <h2 style="justify-content:center;">Welcome Back</h2>
+      <p class="subtitle">Authenticate to access the panel.</p>
+      
+      <div class="form-group">
+        <label>Username</label>
+        <input id="login-user" value="admin">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input id="login-pass" type="password" placeholder="••••••••" onkeyup="if(event.key==='Enter') login()">
+      </div>
+      
+      <button class="btn-primary" style="margin-top: 8px;" onclick="login()">Authenticate</button>
+      <div id="login-msg" style="color:var(--danger); margin-top:12px; text-align:center; font-size:14px;"></div>
+    </div>
+  </div>
+
+  <!-- Setup Wizard Modal -->
+  <div id="wizard" class="overlay" style="display:none; z-index: 200;">
+    <div class="card modal-card" style="max-width: 500px;">
+      <h2 style="justify-content:center; color: #a78bfa;">Configuration Wizard</h2>
+      <p class="subtitle">Welcome! Before you can use the VPN panel, please configure your dedicated VPN domain and secure your admin account.</p>
+      
+      <div class="form-group">
+        <label>Dedicated VPN Domain (For Xray Connections)</label>
+        <input id="wiz-domain" placeholder="e.g. vpn.example.com">
+        <div class="muted" style="font-size: 12px; margin-top: 4px;">An A record must already point this domain to your server IP.</div>
+      </div>
+      
+      <div class="form-group" style="margin-top: 24px;">
+        <label>New Admin Username</label>
+        <input id="wiz-user" value="admin">
+      </div>
+      <div class="form-group">
+        <label>New Admin Password</label>
+        <input id="wiz-pass" type="password" placeholder="Must change from default">
+      </div>
+      
+      <button id="wiz-btn" class="btn-primary" style="margin-top: 16px;" onclick="submitWizard()">Start Configuration (Takes ~30s)</button>
+      <div id="wiz-msg" style="color:var(--accent-primary); margin-top:12px; text-align:center; font-size:14px;"></div>
     </div>
   </div>
 
   <div id="toast"></div>
 
   <script>
-    const toast = (msg) => { const el = document.getElementById('toast'); el.innerText = msg; el.style.display='block'; setTimeout(()=> el.style.display='none', 2600); };
+    const toast = (msg) => { const el = document.getElementById('toast'); el.innerText = msg; el.style.display='block'; setTimeout(()=> el.style.display='none', 3000); };
+    let cachedUsers = [];
+
+    // Tabbing System
+    function switchTab(tabId, el) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      el.classList.add('active');
+      bootstrapTab(tabId);
+    }
 
     async function login() {
       const res = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username: document.getElementById('login-user').value, password: document.getElementById('login-pass').value }) });
       const data = await res.json();
-      if(res.ok){ document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; bootstrap(); }
-      else { document.getElementById('login-msg').innerText = data.error || 'Login failed'; }
+      if(res.ok) { 
+        document.getElementById('login').style.display='none'; 
+        checkSetupStatus();
+      } else { 
+        document.getElementById('login-msg').innerText = data.error || 'Authentication failed'; 
+      }
     }
 
-    function logout(){ document.cookie='panel_token=; Max-Age=0;'; location.reload(); }
-
-    async function createXray(){
-      const payload = { protocol: document.getElementById('proto').value, remark: document.getElementById('remark').value, days: parseInt(document.getElementById('days').value||'30') };
-      const res = await fetch('/api/users/xray', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      const data = await res.json();
-      document.getElementById('xray-result').innerText = res.ok ? `Created ${data.username} | ${data.link}` : (data.error || 'error');
-      toast(res.ok?'Xray user created':'Error creating Xray user');
-      fetchUsers(); fetchAudits();
+    async function checkSetupStatus() {
+      const res = await fetch('/api/setup/status', { headers: { 'Authorization': `Bearer ${getCookie('panel_token')}` }});
+      if(res.ok) {
+        const data = await res.json();
+        if(data.setup_complete) {
+          document.getElementById('app').style.display='flex';
+          bootstrapTab('home');
+        } else {
+          document.getElementById('wizard').style.display='flex';
+        }
+      } else {
+        logout();
+      }
     }
 
-    async function createSSH(){
-      const payload = { username: document.getElementById('ssh-user').value, password: document.getElementById('ssh-pass').value, days: parseInt(document.getElementById('ssh-days').value||'30') };
-      const res = await fetch('/api/users/ssh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      const data = await res.json();
-      document.getElementById('ssh-result').innerText = res.ok ? `User ${data.username} created` : (data.error || 'error');
-      toast(res.ok?'SSH user created':'Error creating SSH user');
-      fetchUsers(); fetchAudits();
+    async function submitWizard() {
+      const btn = document.getElementById('wiz-btn');
+      const msg = document.getElementById('wiz-msg');
+      const domain = document.getElementById('wiz-domain').value;
+      const user = document.getElementById('wiz-user').value;
+      const pass = document.getElementById('wiz-pass').value;
+
+      if(!domain || !pass || pass === 'changeme') {
+        msg.style.color = 'var(--danger)'; msg.innerText = "Please provide domain and secure password."; return;
+      }
+
+      btn.innerText = "Configuring... Please wait."; btn.disabled = true;
+      msg.style.color = "var(--text-muted)"; msg.innerText = "Requesting SSL certificates and configuring Nginx...";
+
+      const res = await fetch('/api/setup/init', { 
+        method:'POST', 
+        headers:{'Content-Type':'application/json', 'Authorization': `Bearer ${getCookie('panel_token')}`}, 
+        body: JSON.stringify({ vpn_domain: domain, new_user: user, new_password: pass }) 
+      });
+
+      if(res.ok) {
+        msg.style.color = "#4ade80"; msg.innerText = "Setup Complete! Redirecting...";
+        setTimeout(() => logout(), 1500);
+      } else {
+        const data = await res.json();
+        msg.style.color = 'var(--danger)'; msg.innerText = data.error || data.details || "Setup failed. Check logs.";
+        btn.innerText = "Start Configuration (Takes ~30s)"; btn.disabled = false;
+      }
     }
 
-    async function fetchUsers(){
-      const res = await fetch('/api/users'); const data = await res.json();
-      const tbody = document.querySelector('#user-table tbody'); tbody.innerHTML='';
-      (data||[]).forEach(u => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${u.id}</td><td><span class=\"pill\">${u.protocol}</span></td><td>${u.username||''}</td><td>${u.expires_at?.substring(0,10)}</td><td>${u.active?'yes':'no'}</td><td><button class=\"btn-danger\" onclick=\"revoke(${u.id})\">Revoke</button></td>`;
-        tbody.appendChild(tr);
+    function logout(){ document.cookie='panel_token=; Max-Age=0; path=/;'; location.reload(); }
+    function getCookie(name) { const m = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)')); return m ? m[2] : null; }
+
+    function fetchAPI(uri, method='GET', body=null) {
+      return fetch(uri, {
+        method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getCookie('panel_token')}` },
+        body: body ? JSON.stringify(body) : null
       });
     }
 
-    async function revoke(id){
-      const res = await fetch('/api/users/revoke', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}) });
-      const data = await res.json();
-      toast(res.ok?'User revoked':(data.error||'error'));
-      fetchUsers(); fetchAudits();
+    // Tab Bootstrappers
+    let pollInterval = null;
+    
+    function bootstrapTab(tab) {
+      if(pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+      
+      if(tab === 'home') { 
+        fetchPorts(); fetchAudits(); fetchResources(); 
+        pollInterval = setInterval(fetchResources, 2000); // Live poll
+      }
+      if(tab === 'xray' || tab === 'ssh') { fetchUsers(); }
+      if(tab === 'dns') { fetchDNS(); }
+      if(tab === 'admin') { fetchAdmins(); }
     }
 
+    // VPN Users Logic
+    async function fetchUsers(){
+      const res = await fetchAPI('/api/users'); 
+      if(!res.ok) return;
+      cachedUsers = await res.json();
+      
+      const xrayBody = document.querySelector('#xray-table tbody'); xrayBody.innerHTML='';
+      const sshBody = document.querySelector('#ssh-table tbody'); sshBody.innerHTML='';
+
+      (cachedUsers||[]).forEach(u => {
+        const delBtn = `<button class="btn-danger" onclick="deleteUser(${u.id})">Delete</button>`;
+        const isSSH = u.protocol === 'ssh';
+
+        if(isSSH) {
+          sshBody.innerHTML += `<tr>
+            <td style="font-weight: 500;">${u.username}</td><td>${u.expires_at?.substring(0,10)}</td>
+            <td><span style="color: ${u.active ? '#4ade80' : '#f87171'}">●</span> ${u.active?'Active':'Revoked'}</td>
+            <td>${delBtn}</td></tr>`;
+        } else {
+          const lBtn = u.link ? `<button class="pill" style="border:none; cursor:pointer;" onclick="navigator.clipboard.writeText('${u.link}'); toast('Copied!');">Copy Link</button>` : '';
+          xrayBody.innerHTML += `<tr>
+            <td><span class="pill">${u.protocol.toUpperCase()}</span></td>
+            <td style="font-weight: 500;">${u.remark || u.username}</td><td>${u.expires_at?.substring(0,10)}</td>
+            <td>${lBtn}</td><td>${delBtn}</td></tr>`;
+        }
+      });
+    }
+
+    async function createXray(){
+      const p = { protocol: document.getElementById('proto').value, remark: document.getElementById('remark').value, days: parseInt(document.getElementById('days').value||'30') };
+      if(!p.remark) return toast('Remark required');
+      const res = await fetchAPI('/api/users/xray', 'POST', p);
+      if(res.ok) { toast('Xray user created'); fetchUsers(); } else { toast('Creation failed'); }
+    }
+
+    async function createSSH(){
+      const p = { username: document.getElementById('ssh-user').value, password: document.getElementById('ssh-pass').value, days: parseInt(document.getElementById('ssh-days').value||'30') };
+      if(!p.username) return toast('Username required');
+      const res = await fetchAPI('/api/users/ssh', 'POST', p);
+      if(res.ok) { toast('SSH user created'); fetchUsers(); document.getElementById('ssh-user').value=''; document.getElementById('ssh-pass').value=''; } else { toast('Creation failed'); }
+    }
+
+    async function deleteUser(id){
+      if(!confirm("HARD DELETE: This completely removes the client snippet and uninstalls SSH user. Are you sure?")) return;
+      const res = await fetchAPI('/api/users/revoke', 'POST', {id});
+      toast(res.ok ? 'User physically deleted.' : 'Deletion failed.');
+      fetchUsers();
+    }
+
+    // Analytics Logic
     async function fetchPorts(){
-      const res = await fetch('/api/ports'); const data = await res.json();
+      const res = await fetchAPI('/api/ports'); const data = await res.json();
       const list = document.getElementById('port-list'); list.innerHTML='';
       (data||[]).forEach(p => {
-        const li = document.createElement('li');
-        li.innerHTML = `<strong>${p.port}</strong> — ${p.listeners.length ? 'in use by '+p.listeners.map(l=>`${l.cmd}(pid ${l.pid})`).join(', ') : 'free'}`;
-        list.appendChild(li);
+        list.innerHTML += `<li style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+          <span style="color: #cbd5e1; font-weight: 600; display: inline-block; width: 60px;">:${p.port}</span> 
+          ${p.listeners.length ? '<span style="color:#a78bfa;">Active</span> • '+p.listeners.map(l=>l.cmd).join(', ') : '<span style="color:#64748b;">Idle</span>'}</li>`;
       });
     }
 
     async function fetchAudits(){
-      const res = await fetch('/api/audits'); const data = await res.json();
+      const res = await fetchAPI('/api/audits'); const data = await res.json();
       const list = document.getElementById('audit-list'); list.innerHTML='';
-      (data||[]).forEach(a => { const div=document.createElement('div'); div.textContent = `${a.created_at}: ${a.action} ${a.detail}`; list.appendChild(div); });
+      (data||[]).forEach(a => { 
+        list.innerHTML += `<div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.02)">
+          <span style="color:#64748b; font-size:12px;">${a.created_at?.substring(11,19)}</span> &nbsp; 
+          <span style="color:#cbd5e1;">${a.action}</span> &nbsp; <span style="font-size:12px">${a.detail}</span></div>`; 
+      });
     }
 
-    async function bootstrap(){ await Promise.all([fetchUsers(), fetchPorts(), fetchAudits()]); }
+    async function fetchResources() {
+      const res = await fetchAPI('/api/status/resources');
+      if(!res.ok) return;
+      const data = await res.json();
+      
+      const formatBytes = (b) => (b / (1024*1024*1024)).toFixed(2);
+      const formatBytesMB = (b) => {
+        if (b > 1024*1024*1024) return (b / (1024*1024*1024)).toFixed(2) + ' <span>GB</span>';
+        return (b / (1024*1024)).toFixed(0) + ' <span>MB</span>';
+      };
+
+      // CPU Ring
+      const cpu = Math.max(0, Math.min(100, data.cpu_percent));
+      document.getElementById('cpu-val').innerText = Math.round(cpu) + '%';
+      document.getElementById('cpu-ring').style.strokeDashoffset = 220 - (220 * (cpu / 100));
+
+      // Memory Ring
+      const mem = Math.max(0, Math.min(100, data.mem_percent));
+      document.getElementById('mem-val').innerText = Math.round(mem) + '%';
+      document.getElementById('mem-ring').style.strokeDashoffset = 220 - (220 * (mem / 100));
+      document.getElementById('mem-abs').innerHTML = `${formatBytes(data.mem_used)} / ${formatBytes(data.mem_total)} <span>GB</span>`;
+      
+      // Network Texts
+      document.getElementById('net-rx').innerHTML = formatBytesMB(data.net_rx);
+      document.getElementById('net-tx').innerHTML = formatBytesMB(data.net_tx);
+    }
+
+    // DNS Logic
+    async function fetchDNS(){
+      const res = await fetchAPI('/api/dns'); const data = await res.json();
+      const tbody = document.querySelector('#dns-table tbody'); tbody.innerHTML='';
+      (data||[]).forEach(d => {
+        tbody.innerHTML += `<tr>
+          <td style="font-weight: 500;">${d.domain}</td>
+          <td><button class="pill" style="border:none; cursor:pointer;" onclick="navigator.clipboard.writeText('${d.domain}'); toast('Copied to Clipboard!');">Copy Domain</button></td>
+          <td><button class="btn-danger" onclick="deleteDNS(${d.id}, '${d.domain}')">Delete</button></td>
+        </tr>`;
+      });
+    }
+
+    async function addDNS(){
+      const domain = document.getElementById('dns-domain').value;
+      const btn = document.getElementById('dns-btn');
+      const msg = document.getElementById('dns-msg');
+      if(!domain) return toast('Domain required');
+      
+      btn.disabled = true; btn.innerText = "Requesting SSL..."; msg.innerText = "This will take ~20 seconds...";
+      msg.style.color = "var(--text-muted)";
+
+      const res = await fetchAPI('/api/dns/add', 'POST', {domain});
+      btn.disabled = false; btn.innerText = "Install Certificate & Proxy";
+
+      if(res.ok) { msg.style.color = "#4ade80"; msg.innerText = "DNS Engine deployed!"; fetchDNS(); document.getElementById('dns-domain').value = ''; } 
+      else { const d = await res.json(); msg.style.color = "var(--danger)"; msg.innerText = d.error || "Deployment failed"; }
+    }
+
+    async function deleteDNS(id, domain) {
+      if(!confirm(`Delete DNS configuration for ${domain}?`)) return;
+      const res = await fetchAPI('/api/dns/delete', 'POST', {id, domain});
+      toast(res.ok ? 'DNS removed' : 'Removal failed');
+      fetchDNS();
+    }
+
+    // Admin Logic
+    async function fetchAdmins(){
+      const res = await fetchAPI('/api/admins'); const data = await res.json();
+      const tbody = document.querySelector('#admin-table tbody'); tbody.innerHTML='';
+      (data||[]).forEach(a => {
+        tbody.innerHTML += `<tr>
+          <td>${a.id}</td><td style="font-weight: 500;">${a.username}</td>
+          <td><button class="btn-danger" onclick="deleteAdmin(${a.id})">Delete</button></td>
+        </tr>`;
+      });
+    }
+
+    async function addAdmin(){
+      const user = document.getElementById('admin-user').value;
+      const pass = document.getElementById('admin-pass').value;
+      if(!user||!pass) return toast('User and Default Pass required');
+      const res = await fetchAPI('/api/admins/add', 'POST', {username: user, password: pass});
+      toast(res.ok ? 'Admin added' : 'Failed to add admin');
+      if(res.ok){ document.getElementById('admin-user').value=''; document.getElementById('admin-pass').value=''; fetchAdmins(); }
+    }
+
+    async function updateAdmin(){
+      const user = document.getElementById('admin-user').value;
+      const pass = document.getElementById('admin-pass').value;
+      if(!user||!pass) return toast('Provide existing user and new password');
+      const res = await fetchAPI('/api/admins/update', 'POST', {username: user, password: pass});
+      toast(res.ok ? 'Password changed' : 'Failed to change password');
+    }
+
+    async function deleteAdmin(id) {
+      if(!confirm("Delete this admin account?")) return;
+      const res = await fetchAPI('/api/admins/delete', 'POST', {id});
+      toast(res.ok ? 'Admin deleted' : 'Failed to delete (Primary admin cannot be deleted)');
+      fetchAdmins();
+    }
   </script>
 </body>
 </html>

@@ -22,6 +22,7 @@ type User struct {
     ExpiresAt time.Time `json:"expires_at"`
     Active    bool      `json:"active"`
     CreatedAt time.Time `json:"created_at"`
+    Link      string    `json:"link,omitempty"`
 }
 
 type Audit struct {
@@ -45,7 +46,9 @@ func New(path string) (*Store, error) {
 
 func (s *Store) migrate() error {
     stmts := []string{
-        `CREATE TABLE IF NOT EXISTS admin (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT);`,
+        `CREATE TABLE IF NOT EXISTS admin (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT);`,
+        `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);`,
+        `CREATE TABLE IF NOT EXISTS private_dns (id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);`,
         `CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             protocol TEXT,
@@ -69,17 +72,76 @@ func (s *Store) migrate() error {
             return err
         }
     }
+    
+    // Default settings if empty
+    s.DB.Exec(`INSERT OR IGNORE INTO settings (key, value) VALUES ('setup_complete', 'false')`)
+    s.DB.Exec(`INSERT OR IGNORE INTO settings (key, value) VALUES ('vpn_domain', '')`)
+    
     return nil
 }
 
-func (s *Store) UpsertAdmin(username, passwordHash string) error {
-    _, err := s.DB.Exec(`INSERT INTO admin (id, username, password_hash) VALUES (1, ?, ?) 
-        ON CONFLICT(id) DO UPDATE SET username=excluded.username, password_hash=excluded.password_hash`, username, passwordHash)
+func (s *Store) GetSetting(key string) string {
+    var val string
+    err := s.DB.QueryRow(`SELECT value FROM settings WHERE key=?`, key).Scan(&val)
+    if err != nil {
+        return ""
+    }
+    return val
+}
+
+func (s *Store) SetSetting(key, value string) error {
+    _, err := s.DB.Exec(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, key, value)
     return err
 }
 
-func (s *Store) GetAdmin() (string, string, error) {
-    row := s.DB.QueryRow(`SELECT username, password_hash FROM admin WHERE id=1`)
+func (s *Store) AddAdmin(username, passwordHash string) error {
+    _, err := s.DB.Exec(`INSERT INTO admin (username, password_hash) VALUES (?, ?)`, username, passwordHash)
+    return err
+}
+
+func (s *Store) UpdateAdminPassword(username, passwordHash string) error {
+    _, err := s.DB.Exec(`UPDATE admin SET password_hash=? WHERE username=?`, passwordHash, username)
+    return err
+}
+
+func (s *Store) DeleteAdmin(id int64) error {
+    _, err := s.DB.Exec(`DELETE FROM admin WHERE id=? AND id != 1`, id) // Prevent deleting the primary admin
+    return err
+}
+
+type AdminUser struct {
+    ID       int64  `json:"id"`
+    Username string `json:"username"`
+}
+
+func (s *Store) ListAdmins() ([]AdminUser, error) {
+    rows, err := s.DB.Query(`SELECT id, username FROM admin ORDER BY id ASC`)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    var out []AdminUser
+    for rows.Next() {
+        var a AdminUser
+        if err := rows.Scan(&a.ID, &a.Username); err != nil {
+            return nil, err
+        }
+        out = append(out, a)
+    }
+    return out, nil
+}
+
+func (s *Store) GetAdmin(username string) (string, string, error) {
+    row := s.DB.QueryRow(`SELECT username, password_hash FROM admin WHERE username=?`, username)
+    var user, hash string
+    if err := row.Scan(&user, &hash); err != nil {
+        return "", "", err
+    }
+    return user, hash, nil
+}
+
+func (s *Store) GetFirstAdmin() (string, string, error) {
+    row := s.DB.QueryRow(`SELECT username, password_hash FROM admin ORDER BY id ASC LIMIT 1`)
     var user, hash string
     if err := row.Scan(&user, &hash); err != nil {
         return "", "", err
@@ -113,8 +175,9 @@ func (s *Store) ListUsers() ([]User, error) {
     return out, nil
 }
 
-func (s *Store) DeactivateUser(id int64) error {
-    res, err := s.DB.Exec(`UPDATE users SET active=0 WHERE id=?`, id)
+// Hard Delete entirely wipes the user from SQLite instead of deactivating
+func (s *Store) HardDeleteUser(id int64) error {
+    res, err := s.DB.Exec(`DELETE FROM users WHERE id=?`, id)
     if err != nil {
         return err
     }
@@ -123,6 +186,42 @@ func (s *Store) DeactivateUser(id int64) error {
         return errors.New("user not found")
     }
     return nil
+}
+
+type PrivateDNS struct {
+    ID        int64     `json:"id"`
+    Domain    string    `json:"domain"`
+    CreatedAt time.Time `json:"created_at"`
+}
+
+func (s *Store) AddDNSDomain(domain string) (int64, error) {
+    res, err := s.DB.Exec(`INSERT INTO private_dns (domain) VALUES (?)`, domain)
+    if err != nil {
+        return 0, err
+    }
+    return res.LastInsertId()
+}
+
+func (s *Store) ListDNSDomains() ([]PrivateDNS, error) {
+    rows, err := s.DB.Query(`SELECT id, domain, created_at FROM private_dns ORDER BY created_at DESC`)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    var out []PrivateDNS
+    for rows.Next() {
+        var d PrivateDNS
+        if err := rows.Scan(&d.ID, &d.Domain, &d.CreatedAt); err != nil {
+            return nil, err
+        }
+        out = append(out, d)
+    }
+    return out, nil
+}
+
+func (s *Store) DeleteDNSDomain(id int64) error {
+    _, err := s.DB.Exec(`DELETE FROM private_dns WHERE id=?`, id)
+    return err
 }
 
 func (s *Store) AddAudit(action, detail string) error {

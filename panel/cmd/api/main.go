@@ -32,12 +32,14 @@ func main() {
 		log.Printf("log setup: %v", err)
 	}
 
-	hash, err := authHash(cfg.AdminPass)
-	if err != nil {
-		log.Fatalf("hash admin: %v", err)
-	}
-	if err := store.UpsertAdmin(cfg.AdminUser, hash); err != nil {
-		log.Fatalf("seed admin: %v", err)
+	if _, _, err := store.GetFirstAdmin(); err != nil {
+		hash, err := authHash(cfg.AdminPass)
+		if err != nil {
+			log.Fatalf("hash admin: %v", err)
+		}
+		if err := store.AddAdmin(cfg.AdminUser, hash); err != nil {
+			log.Fatalf("seed admin: %v", err)
+		}
 	}
 
 	r := gin.Default()
@@ -57,8 +59,23 @@ func main() {
 	authHandler := &handlers.AuthHandler{Store: store, Cfg: cfg}
 	r.POST("/api/auth/login", authHandler.Login)
 
+	setupHandler := &handlers.SetupHandler{Store: store}
+	r.GET("/api/setup/status", setupHandler.GetStatus)
+	r.POST("/api/setup/init", setupHandler.InitSetup)
+
+	// Setup Guard Middleware: block normal API usage if setup is incomplete
+	setupGuard := func(c *gin.Context) {
+		if store.GetSetting("setup_complete") != "true" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Setup incomplete"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+
 	protected := r.Group("/api")
 	protected.Use(handlers.AuthMiddleware(cfg.JWTSecret))
+	protected.Use(setupGuard)
 
 	usersHandler := &handlers.UsersHandler{Store: store, XWriter: &services.XrayWriter{UserDir: cfg.XrayUserDir, ConfigPath: cfg.XrayConfig}}
 	statusHandler := &handlers.StatusHandler{Store: store}
@@ -68,8 +85,20 @@ func main() {
 	protected.POST("/users/ssh", usersHandler.CreateSSH)
 	protected.POST("/users/revoke", usersHandler.Delete)
 
+	adminsHandler := &handlers.AdminsHandler{Store: store}
+	protected.GET("/admins", adminsHandler.List)
+	protected.POST("/admins/add", adminsHandler.Add)
+	protected.POST("/admins/update", adminsHandler.UpdatePassword)
+	protected.POST("/admins/delete", adminsHandler.Delete)
+
+	dnsHandler := &handlers.DNSHandler{Store: store}
+	protected.GET("/dns", dnsHandler.List)
+	protected.POST("/dns/add", dnsHandler.Add)
+	protected.POST("/dns/delete", dnsHandler.Delete)
+
 	protected.GET("/ports", statusHandler.Ports)
 	protected.GET("/audits", statusHandler.Audits)
+	protected.GET("/status/resources", statusHandler.Resources)
 
 	log.Printf("server on :%s", cfg.PanelPort)
 	if err := r.Run(":" + cfg.PanelPort); err != nil {
