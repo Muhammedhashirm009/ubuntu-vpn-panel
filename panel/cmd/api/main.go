@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -100,6 +101,9 @@ func main() {
 	protected.GET("/audits", statusHandler.Audits)
 	protected.GET("/status/resources", statusHandler.Resources)
 
+	// Start background network tracking routine
+	go trackNetworkUsage(store)
+
 	log.Printf("server on :%s", cfg.PanelPort)
 	if err := r.Run(":" + cfg.PanelPort); err != nil {
 		log.Fatal(err)
@@ -108,4 +112,42 @@ func main() {
 
 func authHash(pw string) (string, error) {
 	return auth.HashPassword(pw)
+}
+
+func trackNetworkUsage(store *db.Store) {
+	var lastRx, lastTx uint64
+	// Initialize starting values
+	statusHandler := &handlers.StatusHandler{}
+	lastRx, lastTx = statusHandler.GetNetDevRaw()
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		rx, tx := statusHandler.GetNetDevRaw()
+		
+		var rxDelta, txDelta uint64
+		// If rx went down, counter reset (e.g. reboot)
+		if rx >= lastRx {
+			rxDelta = rx - lastRx
+		} else {
+			rxDelta = rx
+		}
+		
+		if tx >= lastTx {
+			txDelta = tx - lastTx
+		} else {
+			txDelta = tx
+		}
+
+		lastRx = rx
+		lastTx = tx
+
+		if rxDelta > 0 || txDelta > 0 {
+			today := time.Now().Format("2006-01-02")
+			if err := store.AddNetworkUsage(today, rxDelta, txDelta); err != nil {
+				log.Printf("net track err: %v", err)
+			}
+		}
+	}
 }

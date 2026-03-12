@@ -66,6 +66,11 @@ func (s *Store) migrate() error {
             detail TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );`,
+        `CREATE TABLE IF NOT EXISTS network_stats (
+            date TEXT PRIMARY KEY,
+            rx_bytes INTEGER DEFAULT 0,
+            tx_bytes INTEGER DEFAULT 0
+        );`,
     }
     for _, stmt := range stmts {
         if _, err := s.DB.Exec(stmt); err != nil {
@@ -244,4 +249,37 @@ func (s *Store) ListAudits(limit int) ([]Audit, error) {
         out = append(out, a)
     }
     return out, nil
+}
+
+type NetworkStat struct {
+    Date    string `json:"date"`
+    RxBytes uint64 `json:"rx_bytes"`
+    TxBytes uint64 `json:"tx_bytes"`
+}
+
+// Upsert traffic (add delta to existing row)
+func (s *Store) AddNetworkUsage(date string, rxDelta, txDelta uint64) error {
+    _, err := s.DB.Exec(`
+        INSERT INTO network_stats (date, rx_bytes, tx_bytes) 
+        VALUES (?, ?, ?) 
+        ON CONFLICT(date) DO UPDATE SET 
+            rx_bytes = rx_bytes + excluded.rx_bytes,
+            tx_bytes = tx_bytes + excluded.tx_bytes
+    `, date, rxDelta, txDelta)
+    return err
+}
+
+func (s *Store) GetNetworkUsageToday(date string) (rx, tx uint64) {
+    s.DB.QueryRow(`SELECT rx_bytes, tx_bytes FROM network_stats WHERE date = ?`, date).Scan(&rx, &tx)
+    return
+}
+
+func (s *Store) GetNetworkUsageMonth(monthPrefix string) (rx, tx uint64) {
+    s.DB.QueryRow(`SELECT SUM(rx_bytes), SUM(tx_bytes) FROM network_stats WHERE date LIKE ?`, monthPrefix+"%").Scan(&rx, &tx)
+    return
+}
+
+func (s *Store) GetNetworkUsageTotal() (rx, tx uint64) {
+    s.DB.QueryRow(`SELECT SUM(rx_bytes), SUM(tx_bytes) FROM network_stats`).Scan(&rx, &tx)
+    return
 }

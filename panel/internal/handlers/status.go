@@ -38,8 +38,15 @@ func (h *StatusHandler) Audits(c *gin.Context) {
 
 func (h *StatusHandler) Resources(c *gin.Context) {
     memTotal, _, memAvailable := getMemInfo()
-    rx, tx := getNetDev()
+    rx, tx := h.GetNetDevRaw()
     cpuUsage := getCPUUsage()
+
+    today := time.Now().Format("2006-01-02")
+    thisMonth := time.Now().Format("2006-01")
+
+    dayRx, dayTx := h.Store.GetNetworkUsageToday(today)
+    monthRx, monthTx := h.Store.GetNetworkUsageMonth(thisMonth)
+    totalRx, totalTx := h.Store.GetNetworkUsageTotal()
 
     c.JSON(http.StatusOK, gin.H{
         "cpu_percent": cpuUsage,
@@ -48,6 +55,12 @@ func (h *StatusHandler) Resources(c *gin.Context) {
         "mem_percent": float64(memTotal-memAvailable) / float64(memTotal) * 100,
         "net_rx":      rx,
         "net_tx":      tx,
+        "day_rx":      dayRx,
+        "day_tx":      dayTx,
+        "month_rx":    monthRx,
+        "month_tx":    monthTx,
+        "total_rx":    totalRx,
+        "total_tx":    totalTx,
     })
 }
 
@@ -71,7 +84,7 @@ func getMemInfo() (total, free, available uint64) {
     return
 }
 
-func getNetDev() (rxBytes, txBytes uint64) {
+func (h *StatusHandler) GetNetDevRaw() (rxBytes, txBytes uint64) {
     data, err := os.ReadFile("/proc/net/dev")
     if err != nil { return }
     lines := strings.Split(string(data), "\n")
